@@ -1,0 +1,20 @@
+services:
+  qr-generator:
+    build: .
+    ports:
+      - "8002:8000"
+    volumes:
+      - qr_data:/app/data
+    environment:
+      DATABASE_URL: sqlite:///./data/qr.db
+      API_KEY: ${API_KEY:?generate one, see README}
+      # Point this at your identity-service (see its README for /public-key).
+      # Leave both blank to disable the persisted /codes endpoints entirely
+      # and only allow stateless /render via API key.
+      IDENTITY_PUBLIC_KEY_URL: ${IDENTITY_PUBLIC_KEY_URL:-}
+      IDENTITY_PUBLIC_KEY_PEM: ${IDENTITY_PUBLIC_KEY_PEM:-}
+      JWT_ISSUER: ${JWT_ISSUER:-identity-service}
+    restart: unless-stopped
+
+volumes:
+  qr_data:
