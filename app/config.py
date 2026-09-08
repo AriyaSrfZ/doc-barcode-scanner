@@ -15,6 +15,7 @@ load_dotenv(BASE_DIR / ".env")
 
 class Settings:
     database_url: str = os.getenv("DATABASE_URL", "sqlite:///./data/qr.db")
+    base_url: str = os.getenv("BASE_URL", "http://127.0.0.1:8000").rstrip("/")
 
     # Simple server-to-server key for stateless rendering (no tenant
     # context needed - see POST /render vs POST /codes in docs/API.md).

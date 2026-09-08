@@ -159,3 +159,60 @@ def test_wrong_issuer_rejected(client):
     bad_token = make_token(issuer="some-other-service")
     r = client.post("/codes", json={"type": "url", "url": "https://example.com"}, headers=auth(bad_token))
     assert r.status_code == 401
+
+
+# ---- Scan tracking (type="url" only) -------------------------------------
+
+def test_url_code_scan_is_tracked(client):
+    token = make_token(tenant_id=400)
+    r = client.post("/codes", json={"type": "url", "url": "https://example.com/destination"}, headers=auth(token))
+    qr_id = r.json()["id"]
+
+    # get the actual scan_code by inspecting the redirect the image points at -
+    # simplest way in a test is to query the DB directly via the app's own session
+    from app.database import SessionLocal
+    from app.models import QRCode
+    db = SessionLocal()
+    qr_row = db.query(QRCode).filter(QRCode.id == qr_id).first()
+    scan_code = qr_row.scan_code
+    db.close()
+    assert scan_code  # url types always get one
+
+    r2 = client.get(f"/s/{scan_code}", headers={"user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0"}, follow_redirects=False)
+    assert r2.status_code == 302
+    assert r2.headers["location"] == "https://example.com/destination"
+
+    r3 = client.get(f"/codes/{qr_id}/scans", headers=auth(token))
+    assert r3.status_code == 200
+    assert len(r3.json()) == 1
+    assert "Chrome" in r3.json()[0]["browser"]
+
+    r4 = client.get(f"/codes/{qr_id}/stats", headers=auth(token))
+    assert r4.status_code == 200
+    assert r4.json()["summary"]["total"] == 1
+
+
+def test_scan_unknown_code_404(client):
+    r = client.get("/s/doesnotexist12", follow_redirects=False)
+    assert r.status_code == 404
+
+
+def test_text_type_has_no_scan_code(client):
+    token = make_token(tenant_id=401)
+    r = client.post("/codes", json={"type": "text", "text": "not trackable"}, headers=auth(token))
+    qr_id = r.json()["id"]
+
+    from app.database import SessionLocal
+    from app.models import QRCode
+    db = SessionLocal()
+    qr_row = db.query(QRCode).filter(QRCode.id == qr_id).first()
+    assert qr_row.scan_code is None
+    db.close()
+
+
+def test_tenant_stats_endpoint(client):
+    token = make_token(tenant_id=402)
+    client.post("/codes", json={"type": "url", "url": "https://example.com/a"}, headers=auth(token))
+    r = client.get("/stats", headers=auth(token))
+    assert r.status_code == 200
+    assert "summary" in r.json() and "daily" in r.json()
