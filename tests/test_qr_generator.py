@@ -216,3 +216,16 @@ def test_tenant_stats_endpoint(client):
     r = client.get("/stats", headers=auth(token))
     assert r.status_code == 200
     assert "summary" in r.json() and "daily" in r.json()
+
+
+def test_console_page_loads(client):
+    r = client.get("/console")
+    assert r.status_code == 200
+    assert "Enter your access token" in r.text
+
+
+def test_console_static_assets_serve(client):
+    r = client.get("/static/js/console.js")
+    assert r.status_code == 200
+    r2 = client.get("/static/js/chart.umd.min.js")
+    assert r2.status_code == 200

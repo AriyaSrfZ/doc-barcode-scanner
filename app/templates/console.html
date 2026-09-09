@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QR Generator Console</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <header class="topbar">
+        <a class="brand" href="/console">QR Generator</a>
+        <nav>
+            <a href="#" onclick="logout(); return false;" id="logout-link" style="display:none;">Log out</a>
+        </nav>
+    </header>
+    <main class="container">
+
+        <div id="token-gate" class="card narrow">
+            <h1>Enter your access token</h1>
+            <p class="muted">Get one by logging into your identity service (e.g. <code>POST /auth/login</code>), then paste the <code>access_token</code> here. It's stored only in this browser.</p>
+            <label>Access token
+                <input type="text" id="token-input" placeholder="eyJhbGciOi...">
+            </label>
+            <button class="button wide" onclick="saveToken()">Continue</button>
+            <p class="error" id="token-error" style="display:none;"></p>
+        </div>
+
+        <div id="app-view" style="display:none;">
+            <div class="page-header">
+                <h1>Your QR Codes</h1>
+            </div>
+
+            <div class="stat-cards">
+                <div class="stat-card">
+                    <span class="stat-value" id="stat-total">-</span>
+                    <span class="stat-label">Total scans</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-value" id="stat-last24">-</span>
+                    <span class="stat-label">Last 24 hours</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-value" id="stat-count">-</span>
+                    <span class="stat-label">QR codes</span>
+                </div>
+            </div>
+
+            <div class="analytics-grid">
+                <div class="card">
+                    <h2>Scans, last 14 days</h2>
+                    <div class="chart-box"><canvas id="chart-daily"></canvas></div>
+                </div>
+                <div class="card">
+                    <h2>Devices</h2>
+                    <div class="chart-box"><canvas id="chart-devices"></canvas></div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2>Generate a new QR code</h2>
+                {% raw %}
+                <form onsubmit="createCode(event)">
+                    <label>Type
+                        <select id="new-type" onchange="updateFields()">
+                            <option value="url">URL (trackable)</option>
+                            <option value="text">Plain text</option>
+                            <option value="wifi">WiFi network</option>
+                            <option value="vcard">Contact card</option>
+                        </select>
+                    </label>
+                    <div id="field-url" class="qr-fields">
+                        <label>URL <input type="url" id="f-url" placeholder="https://example.com"></label>
+                    </div>
+                    <div id="field-text" class="qr-fields" style="display:none">
+                        <label>Text <input type="text" id="f-text"></label>
+                    </div>
+                    <div id="field-wifi" class="qr-fields" style="display:none">
+                        <label>SSID <input type="text" id="f-wifi-ssid"></label>
+                        <label>Password <input type="text" id="f-wifi-password"></label>
+                    </div>
+                    <div id="field-vcard" class="qr-fields" style="display:none">
+                        <label>Name <input type="text" id="f-vcard-name"></label>
+                        <label>Phone <input type="text" id="f-vcard-phone"></label>
+                    </div>
+                    <button type="submit" class="button">Generate</button>
+                </form>
+                {% endraw %}
+                <p class="error" id="create-error" style="display:none;"></p>
+            </div>
+
+            <div id="codes-grid" class="qr-grid"></div>
+        </div>
+    </main>
+
+    <script src="/static/js/chart.umd.min.js"></script>
+    <script src="/static/js/console.js"></script>
+</body>
+</html>
