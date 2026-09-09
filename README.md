@@ -10,9 +10,8 @@ needs a QR code just sends it a string.
 ## Two ways to use it
 
 **Stateless (`POST /render`)** — send content, get an image back
-immediately, nothing saved. Auth: `X-API-Key` (simplest, no tenant
-context) or a bearer token from your identity service (accepted too,
-but tenant context is ignored here since nothing persists).
+immediately, nothing saved, never trackable. Auth: `X-API-Key`
+(simplest, no tenant context) or a bearer token.
 
 **Persisted, tenant-scoped (`POST /codes`, `GET /codes`, ...)** —
 requires a real bearer token from an [identity-service](../identity-service)
@@ -20,13 +19,34 @@ requires a real bearer token from an [identity-service](../identity-service)
 Saved codes are scoped to the token's `tenant_id` — a token from tenant
 A can never see or delete tenant B's codes, verified by test.
 
+## Scan tracking (dynamic QR)
+A persisted `type="url"` code doesn't encode the destination URL
+directly — it encodes a tracking redirect (`GET /s/{scan_code}`) that
+logs the scan (device, browser, country, referrer) before forwarding
+to the real destination. This is what makes it a genuinely *dynamic*
+QR code, the same pattern used by every commercial dynamic-QR platform:
+the printed code never changes, but you can see who scanned it and
+when, and you can even redirect it somewhere new later without
+reprinting anything. `type="text"/"wifi"/"vcard"` have no redirect step
+and are never trackable — consistent with how every competing platform
+treats static vs. dynamic codes.
+
+Per-code analytics: `GET /codes/{id}/scans` (individual scan records),
+`GET /codes/{id}/stats` (aggregate). Portfolio-wide: `GET /stats`.
+
+## Web console
+A minimal dashboard at `/console` — paste an access token (from your
+identity service), see your QR codes and live scan charts, generate
+new ones. It's a real UI backed by the same JSON API documented below,
+not a separate code path.
+
 ## Quick start (Docker)
 ```bash
 cp .env.example .env
 # edit .env: set API_KEY, and IDENTITY_PUBLIC_KEY_URL if using /codes
 docker compose up --build
 ```
-Runs at `http://localhost:8002`.
+Runs at `http://localhost:8002`. Console at `http://localhost:8002/console`.
 
 ### Running alongside identity-service
 If both services are on the same Docker network, point
