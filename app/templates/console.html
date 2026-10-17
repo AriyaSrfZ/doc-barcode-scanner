@@ -3,93 +3,268 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>QR Generator Console</title>
+    <title>Document & Picture Barcode Scanner & Generator</title>
     <link rel="stylesheet" href="/static/css/style.css">
+    <style>
+        .nav-tabs {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 24px;
+            border-bottom: 2px solid var(--border);
+            padding-bottom: 8px;
+        }
+        .tab-btn {
+            background: none;
+            border: none;
+            padding: 10px 18px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            cursor: pointer;
+            border-radius: 6px;
+            transition: all 0.2s ease;
+        }
+        .tab-btn:hover {
+            color: var(--text);
+            background: rgba(0,0,0,0.04);
+        }
+        .tab-btn.active {
+            color: var(--primary);
+            background: rgba(91, 95, 240, 0.08);
+            border-bottom: 2px solid var(--primary);
+        }
+        .drop-zone {
+            border: 2px dashed var(--border);
+            border-radius: var(--radius);
+            padding: 40px 20px;
+            text-align: center;
+            background: #fafbfc;
+            cursor: pointer;
+            transition: border-color 0.2s ease, background 0.2s ease;
+        }
+        .drop-zone.dragover {
+            border-color: var(--primary);
+            background: rgba(91, 95, 240, 0.04);
+        }
+        .preview-canvas-container {
+            position: relative;
+            margin-top: 20px;
+            display: inline-block;
+            max-width: 100%;
+        }
+        .preview-canvas-container canvas {
+            max-width: 100%;
+            height: auto;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+        .badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        .barcode-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 14px 18px;
+            background: #f8fafc;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            margin-bottom: 10px;
+        }
+        .barcode-data {
+            font-family: monospace;
+            font-size: 0.95rem;
+            word-break: break-all;
+            margin-top: 4px;
+        }
+        .copy-btn {
+            background: #ffffff;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 6px 12px;
+            font-size: 0.82rem;
+            cursor: pointer;
+            transition: background 0.15s ease;
+        }
+        .copy-btn:hover {
+            background: #f1f5f9;
+        }
+        .color-inputs {
+            display: flex;
+            gap: 16px;
+        }
+        .color-inputs label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.88rem;
+        }
+        .gen-preview-box {
+            text-align: center;
+            padding: 24px;
+            background: #f8fafc;
+            border-radius: var(--radius);
+            border: 1px solid var(--border);
+            min-height: 220px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        .gen-preview-box img {
+            max-width: 100%;
+            max-height: 200px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+            border-radius: 6px;
+            background: #fff;
+        }
+    </style>
 </head>
 <body>
     <header class="topbar">
-        <a class="brand" href="/console">QR Generator</a>
+        <a class="brand" href="/console">Barcode & Document Scanner Studio</a>
         <nav>
-            <a href="#" onclick="logout(); return false;" id="logout-link" style="display:none;">Log out</a>
+            <a href="/docs" target="_blank">API Docs</a>
+            <a href="#" onclick="showTab('tab-analytics'); return false;">Analytics</a>
         </nav>
     </header>
+
     <main class="container">
-
-        <div id="token-gate" class="card narrow">
-            <h1>Enter your access token</h1>
-            <p class="muted">Get one by logging into your identity service (e.g. <code>POST /auth/login</code>), then paste the <code>access_token</code> here. It's stored only in this browser.</p>
-            <label>Access token
-                <input type="text" id="token-input" placeholder="eyJhbGciOi...">
-            </label>
-            <button class="button wide" onclick="saveToken()">Continue</button>
-            <p class="error" id="token-error" style="display:none;"></p>
+        <!-- Tab Navigation -->
+        <div class="nav-tabs">
+            <button class="tab-btn active" onclick="showTab('tab-scanner')">📷 Picture & Doc Scanner</button>
+            <button class="tab-btn" onclick="showTab('tab-generator')">⚡ Barcode & QR Generator</button>
+            <button class="tab-btn" onclick="showTab('tab-analytics')">📊 Scans & Analytics</button>
         </div>
 
-        <div id="app-view" style="display:none;">
-            <div class="page-header">
-                <h1>Your QR Codes</h1>
-            </div>
-
-            <div class="stat-cards">
-                <div class="stat-card">
-                    <span class="stat-value" id="stat-total">-</span>
-                    <span class="stat-label">Total scans</span>
-                </div>
-                <div class="stat-card">
-                    <span class="stat-value" id="stat-last24">-</span>
-                    <span class="stat-label">Last 24 hours</span>
-                </div>
-                <div class="stat-card">
-                    <span class="stat-value" id="stat-count">-</span>
-                    <span class="stat-label">QR codes</span>
-                </div>
-            </div>
-
-            <div class="analytics-grid">
-                <div class="card">
-                    <h2>Scans, last 14 days</h2>
-                    <div class="chart-box"><canvas id="chart-daily"></canvas></div>
-                </div>
-                <div class="card">
-                    <h2>Devices</h2>
-                    <div class="chart-box"><canvas id="chart-devices"></canvas></div>
-                </div>
-            </div>
-
+        <!-- TAB 1: SCANNER -->
+        <section id="tab-scanner" class="tab-content">
             <div class="card">
-                <h2>Generate a new QR code</h2>
-                {% raw %}
-                <form onsubmit="createCode(event)">
-                    <label>Type
-                        <select id="new-type" onchange="updateFields()">
-                            <option value="url">URL (trackable)</option>
-                            <option value="text">Plain text</option>
-                            <option value="wifi">WiFi network</option>
-                            <option value="vcard">Contact card</option>
-                        </select>
-                    </label>
-                    <div id="field-url" class="qr-fields">
-                        <label>URL <input type="url" id="f-url" placeholder="https://example.com"></label>
+                <h1>Picture & Document Barcode Scanner</h1>
+                <p class="muted">Upload any image (PNG, JPG, WebP) or PDF document. Scans and decodes all 1D barcodes (Code 128, EAN, UPC) and 2D QR codes with bounding box detection.</p>
+
+                <div class="drop-zone" id="drop-zone" onclick="document.getElementById('file-input').click()">
+                    <input type="file" id="file-input" style="display:none;" accept="image/*,.pdf" onchange="handleFileSelected(this.files[0])">
+                    <p style="margin:0; font-size:1.1rem; font-weight:600;">Drag & drop image or PDF document here</p>
+                    <p class="muted" style="margin:6px 0 0; font-size:0.88rem;">or click to browse from your device</p>
+                </div>
+
+                <div id="scan-loading" style="display:none; text-align:center; padding:20px;">
+                    <p class="muted">Scanning document for barcodes...</p>
+                </div>
+
+                <div id="scan-results-box" style="display:none; margin-top:24px;">
+                    <h2>Detected Barcodes (<span id="results-count">0</span>)</h2>
+                    <div id="barcode-list"></div>
+                    <div class="preview-canvas-container" id="canvas-container">
+                        <canvas id="preview-canvas"></canvas>
                     </div>
-                    <div id="field-text" class="qr-fields" style="display:none">
-                        <label>Text <input type="text" id="f-text"></label>
+                </div>
+            </div>
+        </section>
+
+        <!-- TAB 2: GENERATOR -->
+        <section id="tab-generator" class="tab-content" style="display:none;">
+            <div class="card">
+                <h1>Barcode & QR Code Generator</h1>
+                <p class="muted">Generate 1D barcodes (Code 128, EAN-13, Code 39, UPC-A) or high-density 2D QR codes in PNG or SVG vector format.</p>
+
+                <div class="form-grid">
+                    <div>
+                        <label>Symbology
+                            <select id="gen-symbology" onchange="updateGeneratorFields()">
+                                <option value="qr">QR Code (2D)</option>
+                                <option value="code128">Code 128 (1D Alphanumeric)</option>
+                                <option value="code39">Code 39 (1D)</option>
+                                <option value="ean13">EAN-13 (1D Retail)</option>
+                                <option value="upca">UPC-A (1D Retail)</option>
+                            </select>
+                        </label>
+
+                        <div id="field-url" class="type-field">
+                            <label>Content / Payload
+                                <input type="text" id="gen-data" placeholder="https://example.com or INV-9821" value="https://example.com">
+                            </label>
+                        </div>
+
+                        <div class="color-inputs" style="margin:16px 0;">
+                            <label>Foreground:
+                                <input type="color" id="gen-fg" value="#000000" onchange="previewGeneratedBarcode()">
+                            </label>
+                            <label>Background:
+                                <input type="color" id="gen-bg" value="#ffffff" onchange="previewGeneratedBarcode()">
+                            </label>
+                        </div>
+
+                        <button class="button wide" onclick="previewGeneratedBarcode()">Update Preview</button>
                     </div>
-                    <div id="field-wifi" class="qr-fields" style="display:none">
-                        <label>SSID <input type="text" id="f-wifi-ssid"></label>
-                        <label>Password <input type="text" id="f-wifi-password"></label>
+
+                    <div>
+                        <h2>Live Preview</h2>
+                        <div class="gen-preview-box">
+                            <img id="gen-preview-img" alt="Barcode preview">
+                        </div>
+                        <div style="display:flex; gap:12px; margin-top:16px;">
+                            <button class="button" style="flex:1;" onclick="downloadGenerated('png')">Download PNG</button>
+                            <button class="button secondary" style="flex:1;" onclick="downloadGenerated('svg')">Download SVG</button>
+                        </div>
                     </div>
-                    <div id="field-vcard" class="qr-fields" style="display:none">
-                        <label>Name <input type="text" id="f-vcard-name"></label>
-                        <label>Phone <input type="text" id="f-vcard-phone"></label>
-                    </div>
-                    <button type="submit" class="button">Generate</button>
-                </form>
-                {% endraw %}
-                <p class="error" id="create-error" style="display:none;"></p>
+                </div>
+            </div>
+        </section>
+
+        <!-- TAB 3: ANALYTICS & SAVED CODES -->
+        <section id="tab-analytics" class="tab-content" style="display:none;">
+            <div id="token-gate" class="card narrow">
+                <h1>Tenant Scan Analytics</h1>
+                <p class="muted">Enter your access token from your identity service to view tracked scans and saved dynamic QR codes.</p>
+                <label>Access token
+                    <input type="text" id="token-input" placeholder="eyJhbGciOi...">
+                </label>
+                <button class="button wide" onclick="saveToken()">Continue</button>
+                <p class="error" id="token-error" style="display:none;"></p>
             </div>
 
-            <div id="codes-grid" class="qr-grid"></div>
-        </div>
+            <div id="app-view" style="display:none;">
+                <div class="stat-cards">
+                    <div class="stat-card">
+                        <span class="stat-value" id="stat-total">-</span>
+                        <span class="stat-label">Total scans</span>
+                    </div>
+                    <div class="stat-card">
+                        <span class="stat-value" id="stat-last24">-</span>
+                        <span class="stat-label">Last 24 hours</span>
+                    </div>
+                    <div class="stat-card">
+                        <span class="stat-value" id="stat-count">-</span>
+                        <span class="stat-label">QR codes</span>
+                    </div>
+                </div>
+
+                <div class="analytics-grid">
+                    <div class="card">
+                        <h2>Scans, last 14 days</h2>
+                        <div class="chart-box"><canvas id="chart-daily"></canvas></div>
+                    </div>
+                    <div class="card">
+                        <h2>Devices</h2>
+                        <div class="chart-box"><canvas id="chart-devices"></canvas></div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h2>Saved QR Codes</h2>
+                    <div id="code-list"></div>
+                </div>
+            </div>
+        </section>
     </main>
 
     <script src="/static/js/chart.umd.min.js"></script>

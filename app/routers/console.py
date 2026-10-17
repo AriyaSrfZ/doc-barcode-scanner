@@ -18,4 +18,5 @@ templates = Jinja2Templates(directory="app/templates")
 
 @router.get("/console")
 def console(request: Request):
-    return templates.TemplateResponse("console.html", {"request": request})
+    return templates.TemplateResponse(request=request, name="console.html")
+
