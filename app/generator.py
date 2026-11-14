@@ -75,6 +75,9 @@ def generate_barcode(
     Generate either a 1D barcode or 2D QR code.
     Returns raw bytes of PNG or SVG.
     """
+    if not data or not data.strip():
+        raise ValueError("Data payload cannot be empty.")
+
     sym = symbology.lower().strip()
     fmt = output_format.lower().strip()
 
@@ -106,7 +109,7 @@ def _generate_qr(
         )
         qr.add_data(data)
         qr.make(fit=True)
-        img = qr.make_image()
+        img = qr.make_image(fill_color=fg_color, back_color=bg_color)
         buf = BytesIO()
         img.save(buf)
         return buf.getvalue()
@@ -141,8 +144,11 @@ def _generate_1d_barcode(
         "foreground": fg_color,
     }
 
-    barcode_class = barcode.get_barcode_class(SUPPORTED_1D_FORMATS[symbology])
-    bc = barcode_class(data, writer=writer)
-    buf = BytesIO()
-    bc.write(buf, options=writer_options)
-    return buf.getvalue()
+    try:
+        barcode_class = barcode.get_barcode_class(SUPPORTED_1D_FORMATS[symbology])
+        bc = barcode_class(data, writer=writer)
+        buf = BytesIO()
+        bc.write(buf, options=writer_options)
+        return buf.getvalue()
+    except barcode.errors.BarcodeError as exc:
+        raise ValueError(str(exc))

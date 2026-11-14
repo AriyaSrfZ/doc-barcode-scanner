@@ -7,6 +7,8 @@ from fastapi import APIRouter, File, Form, HTTPException, Query, UploadFile
 from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel, Field
 
+import barcode
+import barcode.errors
 from app import generator, scanner
 
 router = APIRouter(prefix="/api/v1", tags=["scanner-generator"])
@@ -116,7 +118,7 @@ def generate_barcode_endpoint(payload: GenerateRequest):
             fg_color=payload.fg_color,
             bg_color=payload.bg_color,
         )
-    except ValueError as exc:
+    except (ValueError, barcode.errors.BarcodeError) as exc:
         raise HTTPException(status_code=400, detail=str(exc))
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Generation failed: {exc}")

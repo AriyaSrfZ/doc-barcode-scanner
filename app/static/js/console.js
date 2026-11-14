@@ -152,7 +152,26 @@ function renderScanCanvas(img, barcodes) {
 }
 
 // --- Generator Logic ---
+const SAMPLE_PAYLOADS = {
+    qr: "https://example.com",
+    code128: "INV-2026-9812",
+    code39: "CODE39-TEST",
+    ean13: "5901234123457",
+    ean8: "96385074",
+    upca: "012345678905",
+    isbn13: "9780306406157"
+};
+
 function updateGeneratorFields() {
+    const sym = document.getElementById("gen-symbology").value;
+    const dataInput = document.getElementById("gen-data");
+    if (dataInput) {
+        const currentVal = dataInput.value.trim();
+        if (!currentVal || Object.values(SAMPLE_PAYLOADS).includes(currentVal)) {
+            dataInput.value = SAMPLE_PAYLOADS[sym] || "SAMPLE";
+        }
+        dataInput.placeholder = SAMPLE_PAYLOADS[sym] || "Payload";
+    }
     previewGeneratedBarcode();
 }
 
@@ -240,6 +259,10 @@ function escapeAttr(str) {
 }
 
 // --- Analytics & Auth (Preserved for JWT compatibility) ---
+const PALETTE = { primary: "#5b5ff0", primaryLight: "rgba(91,95,240,0.15)", categories: ["#5b5ff0", "#22c3a6", "#f5a623", "#ef476f", "#118ab2"] };
+let chartDailyInstance = null;
+let chartDevicesInstance = null;
+
 function getToken() { return localStorage.getItem("qr_access_token"); }
 function saveToken() {
     const token = document.getElementById("token-input").value.trim();
@@ -264,8 +287,75 @@ async function initAnalytics() {
         });
         if (res.ok) {
             const data = await res.json();
-            document.getElementById("stat-total").textContent = data.total_scans;
-            document.getElementById("stat-last24").textContent = data.scans_last_24h;
+            document.getElementById("stat-total").textContent = data.summary?.total ?? 0;
+            document.getElementById("stat-last24").textContent = data.summary?.last_24h ?? 0;
+
+            if (data.daily && document.getElementById("chart-daily") && typeof Chart !== "undefined") {
+                if (chartDailyInstance) chartDailyInstance.destroy();
+                chartDailyInstance = new Chart(document.getElementById("chart-daily"), {
+                    type: "line",
+                    data: {
+                        labels: data.daily.map(d => d.day.slice(5)),
+                        datasets: [{
+                            data: data.daily.map(d => d.count),
+                            borderColor: PALETTE.primary,
+                            backgroundColor: PALETTE.primaryLight,
+                            fill: true,
+                            tension: 0.35,
+                        }],
+                    },
+                    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { precision: 0 } } } },
+                });
+            }
+
+            if (data.devices && data.devices.length && document.getElementById("chart-devices") && typeof Chart !== "undefined") {
+                if (chartDevicesInstance) chartDevicesInstance.destroy();
+                chartDevicesInstance = new Chart(document.getElementById("chart-devices"), {
+                    type: "doughnut",
+                    data: {
+                        labels: data.devices.map(d => d.device_type),
+                        datasets: [{
+                            data: data.devices.map(d => d.count),
+                            backgroundColor: PALETTE.categories,
+                            borderWidth: 0,
+                        }],
+                    },
+                    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: "bottom" } }, cutout: "60%" },
+                });
+            }
+        }
+
+        const codesRes = await fetch("/codes", {
+            headers: { Authorization: `Bearer ${token}` }
+        });
+        if (codesRes.ok) {
+            const codes = await codesRes.json();
+            const countEl = document.getElementById("stat-count");
+            if (countEl) countEl.textContent = codes.length;
+
+            const codeList = document.getElementById("code-list");
+            if (codeList) {
+                codeList.innerHTML = "";
+                if (codes.length === 0) {
+                    codeList.innerHTML = `<p class="muted">No saved QR codes for this tenant yet.</p>`;
+                } else {
+                    for (const c of codes) {
+                        const item = document.createElement("div");
+                        item.className = "barcode-item";
+                        item.innerHTML = `
+                            <div>
+                                <span class="badge">${c.type}</span>
+                                <div class="barcode-data">ID #${c.id} &middot; Created ${new Date(c.created_at).toLocaleDateString()}</div>
+                            </div>
+                            <div style="display:flex; gap:8px;">
+                                <a class="copy-btn" href="${c.image_url}" target="_blank" style="text-decoration:none;">PNG</a>
+                                <a class="copy-btn" href="${c.svg_url}" target="_blank" style="text-decoration:none;">SVG</a>
+                            </div>
+                        `;
+                        codeList.appendChild(item);
+                    }
+                }
+            }
         }
     } catch (e) {
         console.error(e);
